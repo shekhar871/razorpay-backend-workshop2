@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const Razorpay = require('razorpay');
 require('dotenv').config();
 
 const app = express();
@@ -10,8 +11,30 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-app.get('/', (req, res) => {
-  res.send('Server is running');
+const instance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder'
+});
+
+app.get('/api/getkey', (req, res) => {
+  res.json({ key: process.env.RAZORPAY_KEY_ID });
+});
+
+// create order
+app.post('/api/create-order', async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const options = {
+      amount: Number(amount) * 100, // converting to paise
+      currency: "INR",
+      receipt: "receipt#" + Math.floor(Math.random() * 10000)
+    };
+    const order = await instance.orders.create(options);
+    res.json({ success: true, order });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.listen(port, () => {
