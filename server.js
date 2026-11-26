@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const Razorpay = require('razorpay');
 require('dotenv').config();
 
@@ -34,6 +35,23 @@ app.post('/api/create-order', async (req, res) => {
   } catch (err) {
     console.log(err);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// verify payment signature
+app.post('/api/verify-payment', (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+  const generated_signature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'secret_placeholder')
+    .update(razorpay_order_id + "|" + razorpay_payment_id)
+    .digest('hex');
+
+  if (generated_signature === razorpay_signature) {
+    console.log("payment successfull:", razorpay_payment_id);
+    return res.json({ success: true, message: "payment verified successfully" });
+  } else {
+    return res.status(400).json({ success: false, message: "invalid signature" });
   }
 });
 
