@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Payment Gateway</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #f0f2f5;
+    }
+    .box {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      width: 300px;
+      text-align: center;
+    }
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 15px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      background: #3399cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background: #2277aa;
+    }
+    #result {
+      margin-top: 15px;
+      font-size: 14px;
+    }
+  </style>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+  <div class="box">
+    <h3>Razorpay Payment</h3>
+    <input type="number" id="amt" value="500" placeholder="Enter amount">
+    <button id="paybtn" onclick="payNow()">Pay Now</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function payNow() {
+      const amount = document.getElementById('amt').value;
+      const resDiv = document.getElementById('result');
+      if (!amount) {
+        alert("Enter amount");
+        return;
+      }
+      try {
+        const keyRes = await fetch('/api/getkey');
+        const keyData = await keyRes.json();
+
+        const orderRes = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amount })
+        });
+        const orderData = await orderRes.json();
+        const order = orderData.order;
+
+        const options = {
+          key: keyData.key,
+          amount: order.amount,
+          currency: order.currency,
+          name: "ASD Workshop 2",
+          description: "Test Transaction",
+          order_id: order.id,
+          handler: async function (response) {
+            const verifyRes = await fetch('/api/verify-payment', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              resDiv.style.color = "green";
+              resDiv.innerText = "Payment Successful! ID: " + response.razorpay_payment_id;
+            } else {
+              resDiv.style.color = "red";
+              resDiv.innerText = "Payment verification failed!";
+            }
+          },
+          prefill: {
+            name: "Shekhar",
+            email: "shekhar@example.com",
+            contact: "9999999999"
+          },
+          theme: {
+            color: "#3399cc"
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        console.log(err);
+        alert("Something went wrong");
+      }
+    }
+  </script>
+</body>
+</html>
